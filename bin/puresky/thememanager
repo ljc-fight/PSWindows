@@ -1,0 +1,141 @@
+androidVersion=$(cat tmp/system/system/build.prop |grep "ro.build.version.release" |cut -d "=" -f 2 |awk 'NR==1')
+sdkLevel=$(cat tmp/system/system/build.prop |grep "ro.build.version.sdk" |cut -d "=" -f 2 |awk 'NR==1')
+Apktool="java -jar bin/apktool/apktool.jar"
+[ "$(uname)" == "Windows_NT" ] && zipalign=bin/Windows_NT/x86_64/zipalign || zipalign=zipalign
+
+themeManager=$(find tmp/ -type f -name "*ThemeManager*.apk")
+if [ -f "$themeManager" ];then
+	$Apktool -r -b -f d -c -api $sdkLevel --use-aapt2 $themeManager -o tmp/ThemeManager
+	drmErrorSmali=$(grep -lrw "DRM_ERROR_UNKNOWN" tmp/ThemeManager/*/com/android/thememanager/*/*/*.smali |awk "NR==1")
+	ResourceSmali=$(find tmp/ThemeManager -type f -name Resource.smali)
+	ResourceOnlineProperties=$(find tmp/ThemeManager -type f -name ResourceOnlineProperties.smali)
+	#OnlineResourceDetailPresenter=$(find tmp/ThemeManager -type f -name OnlineResourceDetailPresenter.smali)
+	#OnlineResourceDetail=$(find tmp/ThemeManager -type f -name OnlineResourceDetail.smali)
+	#LargeIconElement=$(find tmp/ThemeManager -type f -name LargeIconElement.smali)
+	if [ -f "$drmErrorSmali" ];then
+		echo I: Target: $drmErrorSmali
+		sed -i "s/DRM_ERROR_UNKNOWN/DRM_SUCCESS/g" $drmErrorSmali
+		for line in $(seq 1 100);do
+			sed -i "/.line $line/d" $drmErrorSmali
+		done
+	fi
+	
+	if [ -f "$ResourceSmali" ];then
+		echo I: Target: $ResourceSmali
+		for line in $(seq 1 100);do
+			sed -i "/.line $line/d" $ResourceSmali
+		done
+		isHasProductBought=$(grep isProductBought $ResourceSmali)
+		if [ "$isHasProductBought" != "" ];then
+			echo I: Clean method isProductBought
+			nextLine=$(cat $ResourceSmali |grep -A2 "method public isProductBought" |awk 'NR==2')
+			while true
+			do
+				nextLine=$(cat $ResourceSmali |grep -A2 "method public isProductBought" |awk 'NR==2')
+				if [ "$nextLine" != ".end method" ];then
+					#echo I: Deleting $nextLine
+					sed -i '/method public isProductBought/{n;d}' $ResourceSmali
+				else
+					break
+				fi
+			done
+			sed -i -e '/^.method public isProductBought/a\    .locals 1\n    const v0, 0x1\n    return v0' $ResourceSmali
+		fi
+		
+		#isHasCanNotPlay=$(grep isCanNotPlay $ResourceSmali)
+		if [ "$isHasCanNotPlay" != "" ];then
+			echo I: Clean method isCanNotPlay
+			nextLine=$(cat $ResourceSmali |grep -A2 "method public isCanNotPlay" |awk 'NR==2')
+			while true
+			do
+				nextLine=$(cat $ResourceSmali |grep -A2 "method public isCanNotPlay" |awk 'NR==2')
+				if [ "$nextLine" != ".end method" ];then
+					#echo I: Deleting $nextLine
+					sed -i '/method public isCanNotPlay/{n;d}' $ResourceSmali
+				else
+					break
+				fi
+			done
+			sed -i -e '/^.method public isCanNotPlay/a\    .registers 2\n    .prologue\n    const\/4 v0, 0x1\n    return v0' $ResourceSmali
+		fi
+		
+		#isHasAuthorizedResource=$(grep isAuthorizedResource $ResourceSmali)
+		if [ "$isHasAuthorizedResource" != "" ];then
+			echo I: Clean method isAuthorizedResource
+			nextLine=$(cat $ResourceSmali |grep -A2 "method public isAuthorizedResource" |awk 'NR==2')
+			while true
+			do
+				nextLine=$(cat $ResourceSmali |grep -A2 "method public isAuthorizedResource" |awk 'NR==2')
+				if [ "$nextLine" != ".end method" ];then
+					#echo I: Deleting $nextLine
+					sed -i '/method public isAuthorizedResource/{n;d}' $ResourceSmali
+				else
+					break
+				fi
+			done
+			sed -i -e '/^.method public isAuthorizedResource/a\    .registers 2\n    .prologue\n    const\/4 v0, 0x1\n    return v0' $ResourceSmali
+		fi
+	fi
+	
+	if [ -f "$ResourceOnlineProperties" ];then	
+		echo I: Target: $ResourceOnlineProperties
+		#sed -i '/OnlineResourceDetail;->bought:Z/i\const/4 v0, 0x1' $ResourceOnlineProperties
+		#sed -i '/OnlineResourceDetail;->bought:Z/i\ return v0' $ResourceOnlineProperties
+		
+		for line in $(seq 1 100);do
+			sed -i "/.line $line/d" $ResourceOnlineProperties
+		done
+		
+		isHasProductBought=$(grep isProductBought $ResourceOnlineProperties)
+		if [ "$isHasProductBought" != "" ];then
+			echo I: Clean method isProductBought
+			nextLine=$(cat $ResourceOnlineProperties |grep -A2 "method public isProductBought" |awk 'NR==2')
+			while true
+			do
+				nextLine=$(cat $ResourceOnlineProperties |grep -A2 "method public isProductBought" |awk 'NR==2')
+				if [ "$nextLine" != ".end method" ];then
+					#echo I: Deleting $nextLine
+					sed -i '/method public isProductBought/{n;d}' $ResourceOnlineProperties
+				else
+					break
+				fi
+			done
+			sed -i -e '/^.method public isProductBought/a\    .locals 1\n    const v0, 0x1\n    return v0' $ResourceOnlineProperties
+		fi
+	fi
+	
+	for adSmali in $(find tmp/ThemeManager/ |grep AdInfo.smali);do
+		echo I: Target: $adSmali
+		sed -i '/AdInfo;->targetType:I/i\const/4 v0, 0x0' $adSmali
+		sed -i '/AdInfo;->targetType:I/i\ return v0' $adSmali
+	done
+	
+	if [ -f "$OnlineResourceDetailPresenter" ];then
+		echo I: Target: $OnlineResourceDetailPresenter
+		sed -i '/OnlineResourceDetail;->bought:Z/i\const/4 v0, 0x1' $OnlineResourceDetailPresenter
+		sed -i '/OnlineResourceDetail;->bought:Z/i\ return v0' $OnlineResourceDetailPresenter
+	fi
+	
+	if [ -f "$OnlineResourceDetail" ];then
+		echo I: Target: $OnlineResourceDetail
+		sed -i '/OnlineResourceDetail;->bought:Z/i\const/4 v0, 0x1' $OnlineResourceDetail
+		sed -i '/OnlineResourceDetail;->bought:Z/i\ return v0' $OnlineResourceDetail
+	fi
+	
+	if [ -f "$LargeIconElement" ];then
+		echo I: Target: $LargeIconElement
+		sed -i '/OnlineResourceDetail;->bought:Z/i\const/4 v0, 0x1' $LargeIconElement
+		sed -i '/OnlineResourceDetail;->bought:Z/i\ return v0' $LargeIconElement
+	fi
+	
+	echo I: Rebuilding ThemeManager.apk...
+	$Apktool -r -b -f b -c -api $sdkLevel --use-aapt2 tmp/ThemeManager -o tmp/ThemeManager.apk
+	if [ -f tmp/ThemeManager.apk ];then
+		rm -rf $themeManager
+		$zipalign 4 tmp/ThemeManager.apk $themeManager
+		rm -rf tmp/ThemeManager.apk
+	else
+		echo E: Failed to rebuild ThemeManager.apk
+	fi
+	rm -rf tmp/ThemeManager
+fi

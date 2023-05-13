@@ -1,0 +1,20 @@
+# 常规包默认面具版本
+# 可用列表：
+#    稳定版：23000、24300、25200、26100
+#
+# 面具版本说明：
+#    ①安卓9、安卓10建议 23000 或以下版本
+#    ②安卓12最低支持 24300
+#
+default_magisk=26100
+
+
+# super 可能的子分区列表
+super_list=odm mi_ext odm_dlkm vendor system product system_ext vendor_dlkm system_dlkm
+
+
+# 不参与修改的分区
+deny_list=odm mi_ext odm_dlkm vendor_dlkm system_dlkm
+
+# erofs设备列表
+erofs_device_list=REMBRANDT MONDRIAN SOCRATES REDWOOD RUBY SUNSTONE ZIYI DITING ZIZHAN UNICORN DAUMIER THOR MAYFLY XAGA ZIJIN MATISSE RUBENS INGRES ZEUS CUPID PISSARRO MONA ODIN CETUS FUXI NUWA ISHTAR LIUQIN MARBLE

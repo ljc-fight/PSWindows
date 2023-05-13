@@ -1,0 +1,84 @@
+sdkLevel=$(cat tmp/system/system/build.prop |grep "ro.build.version.sdk" |cut -d '=' -f 2 |awk 'NR==1')
+#sdkLevel=31
+PowerKeeperFile=$(find tmp/ -type f -name "PowerKeeper.apk")
+echo I: Target android sdk level: $sdkLevel
+rm -rf tmp/PowerKeeper
+if [ -f "$PowerKeeperFile" ];then
+	echo I: Decoding PowerKeeper.apk...
+	java -jar bin/apktool/apktool.jar -r -b -f d -c -api $sdkLevel --use-aapt2 $PowerKeeperFile -o tmp/PowerKeeper
+	targetLocalUpdateUtilsFile=$(find tmp/PowerKeeper/ -type f -name LocalUpdateUtils.smali)
+	
+	if [ -f "$targetLocalUpdateUtilsFile" ];then
+		echo I: Target:$targetLocalUpdateUtilsFile
+		nextLine=$(cat $targetLocalUpdateUtilsFile |grep -A2 "method public static startCloudSyncData" |awk 'NR==2')
+		isHaveCloudSync=$(cat $targetLocalUpdateUtilsFile |grep startCloudSyncData)
+		if [ "$nextLine" != ".end method" -a "$isHaveCloudSync" != "" ];then
+			while true
+			do
+				nextLine=$(cat $targetLocalUpdateUtilsFile |grep -A2 "method public static startCloudSyncData" |awk 'NR==2')
+				isEnd=$(echo $nextLine |grep "end method")
+				if [ "$isEnd" = "" ];then
+					#echo I: Deleting $nextLine
+					sed -i '/method public static startCloudSyncData(Landroid\/content\/Context;Z)V/{n;d}' $targetLocalUpdateUtilsFile
+				else
+					break
+				fi
+			done
+		fi
+		sed -i -e '/^.method public static startCloudSyncData(Landroid\/content\/Context;Z)V/a\\n    .locals 1\n\n    return-void' $targetLocalUpdateUtilsFile
+		
+	fi
+	
+	
+	targetFrameFile=$(find tmp/PowerKeeper/ -type f -name DisplayFrameSetting.smali)
+	if [ -f "$targetFrameFile" ];then
+		echo I: Target:$targetFrameFile
+		nextLinei=$(cat $targetFrameFile |grep -A2 "method public static isFeatureOn" |awk 'NR==2')
+		isHaveFeatureOn=$(cat $targetFrameFile |grep isFeatureOn)
+		if [ "$nextLinei" != "" -a "$isHaveFeatureOn" != "" ];then
+			while true
+			do
+				nextLinei=$(cat $targetFrameFile |grep -A2 "method public static isFeatureOn" |awk 'NR==2')
+				isEnd=$(echo $nextLinei |grep "end method")
+				if [ "$isEnd" = "" ];then
+					#echo I: Deleting $nextLinei
+					sed -i '/method public static isFeatureOn()Z/{n;d}' $targetFrameFile
+				else
+					break
+				fi
+			done
+			sed -i -e '/^.method public static isFeatureOn()Z/a\\n    .locals 1\n\n    const\/4 v0, 0x0\n\n    return v0' $targetFrameFile
+		fi
+		
+		
+		nextLinej=$(cat $targetFrameFile |grep -A2 "method public setScreenEffect" |awk 'NR==2')
+		isHaveScreenEffect=$(cat $targetFrameFile |grep setScreenEffect)
+		if [ "$nextLinej" != "" -a "$isHaveScreenEffect" != "" ];then
+			while true
+			do
+				nextLinej=$(cat $targetFrameFile |grep -A2 "method public setScreenEffect" |awk 'NR==2')
+				isEnd=$(echo $nextLinej |grep "end method")
+				if [ "$isEnd" = "" ];then
+					#echo I: Deleting $nextLinej
+					sed -i '/method public setScreenEffect(II)V/{n;d}' $targetFrameFile
+				else
+					break
+				fi
+			done
+			
+			sed -i -e '/^.method public setScreenEffect(II)V/a\\n    .locals 1\n\n    return-void' $targetFrameFile
+		fi
+	fi
+fi
+echo I: Rebuilding PowerKeeper.apk...
+java -jar bin/apktool/apktool.jar -r -b -f b -c -api $sdkLevel --use-aapt2 tmp/PowerKeeper -o tmp/PowerKeeper_new.apk
+if [ -f tmp/PowerKeeper_new.apk ];then
+	rm -rf $PowerKeeperFile
+	echo I: Optimizing PowerKeeper.apk...
+	bin/Windows_NT/x86_64/zipalign 4 tmp/PowerKeeper_new.apk $PowerKeeperFile
+	rm -rf tmp/PowerKeeper
+	rm -rf tmp/PowerKeeper_new.apk
+else
+	rm -rf tmp/PowerKeeper
+	echo I:Failed to rebuild PowerKeeper.apk
+fi

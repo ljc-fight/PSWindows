@@ -1,0 +1,151 @@
+androidVersion=$(cat tmp/system/system/build.prop |grep "ro.build.version.release" |cut -d "=" -f 2 |awk 'NR==1')
+sdkLevel=$(cat tmp/system/system/build.prop |grep "ro.build.version.sdk" |cut -d "=" -f 2 |awk 'NR==1')
+Apktool="java -jar bin/apktool/apktool.jar"
+[ "$(uname)" == "Windows_NT" ] && zipalign=bin/Windows_NT/x86_64/zipalign || zipalign=zipalign
+[ "$(uname)" == "Windows_NT" ] && unziper=bin/Windows_NT/x86_64/7z || unziper=7z
+if [ $androidVersion -lt 12 ];then
+	if [ "$androidVersion" = "9" ];then
+		echo W: Android 9 Skipping...
+	else
+		echo I: Decoding services.jar...
+		$Apktool -r -b -f d -c -api $sdkLevel --use-aapt2 tmp/system/system/framework/services.jar -o tmp/services
+		crackFile=$(find tmp/services/ -type f -name SecurityManagerService.smali)
+		isHaveProtectCode=$(cat $crackFile |grep checkSystemSelfProtection)
+		#isHaveCheckSignature=$(cat $crackFile |grep checkAppSignature)
+		if [ "$crackFile" != "" ];then
+			
+			if [ "$isHaveProtectCode" != "" ];then
+				echo I: Clear method checkSystemSelfProtection
+				nextLine=$(cat $crackFile |grep -A2 "method private checkSystemSelfProtection" |awk 'NR==2')
+				while true
+				do
+					nextLine=$(cat $crackFile |grep -A2 "method private checkSystemSelfProtection" |awk 'NR==2')
+					if [ "$nextLine" != ".end method" ];then
+						#echo I: Deleting $nextLine
+						sed -i '/method private checkSystemSelfProtection(Z)V/{n;d}' $crackFile
+					else
+						break
+					fi
+				done
+				sed -i -e '/^.method private checkSystemSelfProtection(Z)V/a\    .locals 1\n    return-void' $crackFile
+			fi
+			
+			if [ "$isHaveCheckSignature" != "" ];then
+				echo I: Clear method checkAppSignature
+				nextLine=$(cat $crackFile |grep -A2 "method private checkAppSignature" |awk 'NR==2')
+				while true
+				do
+					nextLine=$(cat $crackFile |grep -A2 "method private checkAppSignature" |awk 'NR==2')
+					if [ "$nextLine" != ".end method" ];then
+						#echo I: Deleting $nextLine
+						sed -i '/method private checkAppSignature/{n;d}' $crackFile
+					else
+						break
+					fi
+				done
+				sed -i -e '/^.method private checkAppSignature/a\    .locals 1\n    return-void' $crackFile
+			fi
+			echo I: Rebuilding services.jar...
+			$Apktool -r -b -f b -c -api $sdkLevel --use-aapt2 tmp/services -o tmp/services.jar
+			if [ -f tmp/services.jar ];then
+				rm -rf tmp/system/system/framework/services.jar
+				$zipalign 4 tmp/services.jar tmp/system/system/framework/services.jar
+			else
+				echo E: Failed to rebuild services.jar
+			fi
+		else
+			echo W: Skipping modify services.jar
+		fi
+		rm -rf tmp/services
+		rm -rf tmp/services.jar
+
+	fi
+else
+	miuiServices=$(find tmp/ -type f -name miui-services.jar 2>&1)
+	echo I: Decoding miui-services.jar...
+	$Apktool -r -b -f d -c -api $sdkLevel --use-aapt2 $miuiServices -o tmp/miui-services
+	crackFile=$(find tmp/miui-services/ -type f -name SecurityManagerService.smali)
+	isHaveProtectCode=$(cat $crackFile |grep checkSystemSelfProtection)
+	#isHaveCheckSignature=$(cat $crackFile |grep checkAppSignature)
+	if [ "$crackFile" != "" -a "$isHaveProtectCode" != "" ];then
+		
+		if [ "$isHaveProtectCode" != "" ];then 
+			echo I: Clear method checkSystemSelfProtection
+			nextLine=$(cat $crackFile |grep -A2 "method private checkSystemSelfProtection" |awk 'NR==2')
+			while true
+			do
+				nextLine=$(cat $crackFile |grep -A2 "method private checkSystemSelfProtection" |awk 'NR==2')
+				if [ "$nextLine" != ".end method" ];then
+					#echo I: Deleting $nextLine
+					sed -i '/method private checkSystemSelfProtection(Z)V/{n;d}' $crackFile
+				else
+					break
+				fi
+			done
+			sed -i -e '/^.method private checkSystemSelfProtection(Z)V/a\    .locals 1\n    return-void' $crackFile
+		fi
+		
+		if [ "$isHaveCheckSignature" != "" ];then
+			echo I: Clear method checkAppSignature
+			nextLine=$(cat $crackFile |grep -A2 "method private checkAppSignature" |awk 'NR==2')
+			while true
+			do
+				nextLine=$(cat $crackFile |grep -A2 "method private checkAppSignature" |awk 'NR==2')
+				if [ "$nextLine" != ".end method" ];then
+					#echo I: Deleting $nextLine
+					sed -i '/method private checkAppSignature/{n;d}' $crackFile
+				else
+					break
+				fi
+			done
+			sed -i -e '/^.method private checkAppSignature/a\    .locals 1\n    return-void' $crackFile
+		fi
+		echo I: Rebuilding miui-services.jar...
+		$Apktool -r -b -f b -c -api $sdkLevel --use-aapt2 tmp/miui-services -o tmp/miui-services.jar
+		if [ -f tmp/miui-services.jar ];then
+			rm -rf $miuiServices
+			$zipalign 4 tmp/miui-services.jar $miuiServices
+		else
+			echo E: Failed to rebuild miui-services.jar
+		fi
+	else
+		echo W: Skipping modify miui-services.jar
+	fi
+	rm -rf tmp/miui-services
+	rm -rf tmp/miui-services.jar
+fi
+
+frameworkjar=$(find tmp/ -type f -name framework.jar  2>&1)
+if [ -f "$frameworkjar" ] && [ $androidVersion -ge 13 ];then
+	rm -rf tmp/framework/
+	mkdir tmp/framework/
+	cp -rf ${frameworkjar} tmp/framework/framework.jar
+	${unziper} x -y tmp/framework/framework.jar *.dex -otmp/framework >/dev/null
+	for dexfile in $(ls tmp/framework/*.dex);do
+		echo I: Baksmaling ${dexfile}...
+		fname=${dexfile%%.*}
+		fname=$(echo $fname |cut -d "/" -f 3)
+		java -jar bin/apktool/baksmali.jar d --api $sdkLevel ${dexfile} -o tmp/framework/${fname}
+		rm -rf ${dexfile}
+	done
+	targetSmali=$(find tmp/framework/ -type f -name ApkSignatureVerifier.smali)
+	if [ -f "$targetSmali" ];then
+		echo I: Target ${targetSmali}
+		targetdir=$(echo $targetSmali |cut -d "/" -f 3)
+		sed -i "s/const\/4 v0, 0x2/const\/4 v0, 0x1/g" $targetSmali
+		rm -rf ${frameworkjar}
+		echo I: Smaling smali_${targetdir} folder into ${targetdir}.dex
+		java -jar bin/apktool/smali.jar a --api $sdkLevel tmp/framework/${targetdir} -o tmp/framework/${targetdir}.dex
+		cd tmp/framework/
+		[ "$(uname)" == "Windows_NT" ] && unziper="../../bin/Windows_NT/x86_64/7z"
+		${unziper} a -y framework.jar ${targetdir}.dex >/dev/null
+		cd ../../
+		cp -rf tmp/framework/framework.jar ${frameworkjar}
+		rm -rf tmp/framework/
+	else
+		echo I: Skipping modify framework.jar
+		rm -rf tmp/framework/
+	fi
+else
+	echo I: Skipping modify framework.jar
+fi

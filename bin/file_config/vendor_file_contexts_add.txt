@@ -1,0 +1,1 @@
+/vendor/build\.prop\.bak u:object_r:vendor_file:s0

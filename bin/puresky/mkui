@@ -1,0 +1,26 @@
+targetArg=$1
+echo I: MiuiSystemUI target argument = $targetArg
+sdkLevel=$(cat tmp/system/system/build.prop |grep "ro.build.version.sdk" |cut -d '=' -f 2 |awk 'NR==1')
+MiuiSystemUIFile=$(find tmp/ -type f -name MiuiSystemUI.apk)
+echo I: Target android sdk level: $sdkLevel
+if [ -f "$MiuiSystemUIFile" ];then
+	echo I: Decoding MiuiSystemUI.apk...
+    java -jar bin/apktool/apktool.jar -r -b -f d -c -api $sdkLevel --use-aapt2 $MiuiSystemUIFile -o tmp/MiuiSystemUI
+    targetSpeedFile=$(find tmp/MiuiSystemUI/ -type f -name "NetworkSpeedController.smali")
+    if [ -f "$targetSpeedFile" ];then
+        sed -i "s/const-wide\/16 v0, 0xfa0/const-wide\/16 v0, $targetArg/" $targetSpeedFile
+        echo I: Rebuilding MiuiSystemUI.apk...
+        java -jar bin/apktool/apktool.jar -r -b -f b -c -api $sdkLevel --use-aapt2 tmp/MiuiSystemUI -o tmp/MiuiSystemUI_new.apk
+		if [ -f tmp/MiuiSystemUI_new.apk ];then
+			rm -rf $MiuiSystemUIFile
+			echo I: Optmizing MiuiSystemUI.apk...
+			bin/Windows_NT/x86_64/zipalign 4 tmp/MiuiSystemUI_new.apk $MiuiSystemUIFile
+			rm -rf tmp/MiuiSystemUI
+			rm -rf tmp/MiuiSystemUI_new.apk
+		else
+			echo I: Failed to rebuild MiuiSystemUI.apk...
+			rm -rf tmp/MiuiSystemUI
+		fi
+		
+    fi
+fi

@@ -1,0 +1,8 @@
+
+for line in $(cat tmp/updater-script |grep package_extract_file |grep firmware-update |sed 's/ //g' |cut -d '(' -f 2 |cut -d ')' -f 1 |sed 's/"//g')
+do
+	fname=$(echo $line |cut -d ',' -f 1 |cut -d '/' -f 2)
+	pname=$(echo $line |cut -d ',' -f 2 |cut -d '/' -f 6)
+	echo $fname=$pname
+done
+
