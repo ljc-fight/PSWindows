@@ -1,9 +1,8 @@
 # PSWindows
 
-## PureSky官改官方网站：[https://jk.511i.cn](https://jk.511i.cn)
-
 ## 简介
 - PureSky官改Windows端制作工具
+- PureSky官改官方网站：[https://jk.511i.cn](https://jk.511i.cn)
 
 ## 目录结构说明
 - [d] bin - 存放必要环境以及所有用到的文件、开源工具等
